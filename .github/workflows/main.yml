@@ -12,7 +12,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Ensures full Git history is fetched
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -64,8 +64,8 @@ jobs:
           git reset --hard
           cd $GITHUB_WORKSPACE
           git pull --rebase
-          git add tracker/steam_games_db.csv
+          git add -f tracker/steam_games_db.csv
           git commit -m "Update steam_games_db.csv with latest scrape data" || echo "No changes to commit"
-          git push
+          git push --force-with-lease
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
