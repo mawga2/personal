@@ -1,0 +1,28 @@
+name: Steam Price Tracker
+
+on:
+  schedule:
+    - cron: '0 */8 * * *'  # Runs at minute 0 of every 8th hour (UTC)
+  workflow_dispatch:        # Optional: Allow manual triggers
+
+jobs:
+  run-tracker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.9'  # Match your Python version
+
+      - name: Install dependencies
+        working-directory: ./tracker  # Enter the tracker folder
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tracker script
+        working-directory: ./tracker  # Run from the tracker folder
+        run: python monitor.py
