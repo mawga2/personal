@@ -31,7 +31,6 @@ def check_for_changes(old_data, new_data):
     
     for url, new_game in new_data.items():
         if url not in old_data:
-            # New game added to tracking
             notifications.append(
                 f"New game being tracked: {new_game['title']}\n"
                 f"Price: {new_game['price']}\n"
@@ -41,7 +40,6 @@ def check_for_changes(old_data, new_data):
             
         old_game = old_data[url]
         
-        # Check for price change
         if old_game['price'] != new_game['price']:
             notifications.append(
                 f"Price change for {new_game['title']}:\n"
@@ -51,7 +49,6 @@ def check_for_changes(old_data, new_data):
                 f"URL: {url}"
             )
         
-        # Check for release status change
         if old_game['price'] == "Coming Soon" and new_game['price'] != "Coming Soon":
             notifications.append(
                 f"Game released: {new_game['title']}\n"
@@ -59,7 +56,6 @@ def check_for_changes(old_data, new_data):
                 f"URL: {url}"
             )
         
-        # Check for discount
         if old_game['discount_pct'] == "N/A" and new_game['discount_pct'] != "N/A":
             notifications.append(
                 f"New discount for {new_game['title']}:\n"
@@ -116,11 +112,13 @@ def main():
     if notification_content:
         subject, body = notification_content
         print("Changes detected. Sending notification...")
-        send_notification(subject, body)
-        return True
+        if send_notification(subject, body):
+            print("Notification sent successfully.")
+        else:
+            print("Failed to send notification.")
+            exit(1)
     else:
         print("No changes detected.")
-        return False
 
 if __name__ == "__main__":
     main()
