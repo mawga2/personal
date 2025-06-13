@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write  # Grant write access to repository contents
+  contents: write
 
 jobs:
   run-tracker:
@@ -15,7 +15,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}  # Use GITHUB_TOKEN for checkout
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -64,6 +64,7 @@ jobs:
         run: |
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
+          git pull --rebase origin main
           git add steam_games_db.csv
           git commit -m "Update steam_games_db.csv with latest scrape data" || echo "No changes to commit"
           git push https://x:${{ secrets.GITHUB_TOKEN }}@github.com/mawga2/personal.git HEAD:main
