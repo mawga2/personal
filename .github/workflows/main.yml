@@ -57,7 +57,7 @@ jobs:
 
       - name: Overwrite CSV
         run:
-          mv temp_steam_games.csv tracker/steam_games_db.csv
+          mv tracker/temp_steam_games.csv tracker/steam_games_db.csv
 
       - name: Commit and push changes
         env:
