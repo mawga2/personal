@@ -1,22 +1,26 @@
 import csv
 from send_noti import send_notification
 from steam_scraper import scrape_all
+import os
 
 # Configuration
-STEAM_URLS_FILE = 'steam_urls.txt'
-GAMES_DB_FILE = 'steam_games_db.csv'
+STEAM_URLS_FILE = os.path.join(os.path.dirname(__file__), 'steam_urls.txt')
+GAMES_DB_FILE = os.path.join(os.path.dirname(__file__), 'steam_games_db.csv')
 
 def load_previous_data():
     """Load previously scraped game data from the database file."""
     try:
         with open(GAMES_DB_FILE, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
-            return {row['url']: row for row in reader}
+            data = {row['url']: row for row in reader}
+            return data
     except FileNotFoundError:
         return {}
 
 def save_current_data(games_data):
     """Save current game data to the database file."""
+    os.makedirs(os.path.dirname(GAMES_DB_FILE), exist_ok=True)
+    
     with open(GAMES_DB_FILE, 'w', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=[
             'title', 'developer', 'publisher', 'tags', 
@@ -24,6 +28,11 @@ def save_current_data(games_data):
         ])
         writer.writeheader()
         writer.writerows(games_data.values())
+    
+    if os.path.exists(GAMES_DB_FILE):
+        print("Successfully saved database file")
+    else:
+        print("ERROR: Failed to save database file!")
 
 def check_for_changes(old_data, new_data):
     """Compare old and new data to detect changes worth notifying."""
@@ -107,18 +116,18 @@ def run_monitoring_cycle():
 
 def main():
     """Main function to be called by the GitHub workflow."""
+    print("=== Starting monitoring cycle ===")
     notification_content = run_monitoring_cycle()
     
     if notification_content:
         subject, body = notification_content
-        print("Changes detected. Sending notification...")
         if send_notification(subject, body):
             print("Notification sent successfully.")
         else:
             print("Failed to send notification.")
-            exit(1)
+            exit(1) 
     else:
-        print("No changes detected.")
+        print("No changes detected in this cycle.")
 
 if __name__ == "__main__":
     main()
