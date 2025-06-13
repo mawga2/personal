@@ -57,12 +57,11 @@ jobs:
 
       - name: Commit and push changes
         if: success()  # Only run if previous steps succeed
-        working-directory: ./tracker
         run: |
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
-          git pull --ff-only  # Pull latest changes (fast-forward only)
-          git add steam_games_db.csv
+          git pull --ff-only
+          git add tracker/steam_games_db.csv
           git commit -m "Update steam_games_db.csv with latest scrape data" || echo "No changes to commit"
           git push
         env:
