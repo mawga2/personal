@@ -5,12 +5,17 @@ on:
     - cron: '0 0,8,16 * * *'  # Runs at 00:00, 08:00, 16:00 UTC daily
   workflow_dispatch:
 
+permissions:
+  contents: write  # Grant write access to repository contents
+
 jobs:
   run-tracker:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}  # Use GITHUB_TOKEN for checkout
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -61,6 +66,4 @@ jobs:
           git config --global user.email "actions@github.com"
           git add steam_games_db.csv
           git commit -m "Update steam_games_db.csv with latest scrape data" || echo "No changes to commit"
-          git push
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git push https://x:${{ secrets.GITHUB_TOKEN }}@github.com/mawga2/personal.git HEAD:main
