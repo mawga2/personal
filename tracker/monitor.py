@@ -1,12 +1,12 @@
 import csv
-import os
+import time
+from datetime import datetime, timezone
 from send_noti import send_notification
 from steam_scraper import scrape_all
 
 # Configuration
-STEAM_URLS_FILE = os.path.join(os.path.dirname(__file__), 'steam_urls.txt')
-TEMP_CSV_FILE = os.path.join(os.path.dirname(__file__), 'temp_steam_games.csv')
-GAMES_DB_FILE = os.path.join(os.path.dirname(__file__), 'steam_games_db.csv')
+STEAM_URLS_FILE = 'steam_urls.txt'
+GAMES_DB_FILE = 'steam_games_db.csv'
 
 def load_previous_data():
     """Load previously scraped game data from the database file."""
@@ -19,22 +19,19 @@ def load_previous_data():
         return {}
 
 def save_current_data(games_data):
-    """Save current game data to the temporary CSV file."""
-    os.makedirs(os.path.dirname(TEMP_CSV_FILE), exist_ok=True)
-    
-    with open(TEMP_CSV_FILE, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=[
-            'title', 'developer', 'publisher', 'tags', 
-            'user_review', 'price', 'discount_pct', 'url'
-        ])
-        writer.writeheader()
-        writer.writerows(games_data.values())
-    
-    if os.path.exists(TEMP_CSV_FILE):
-        print("Successfully saved temporary CSV file")
+    """Save current game data directly to the CSV file."""
+    try:
+        with open(GAMES_DB_FILE, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=[
+                'title', 'developer', 'publisher', 'tags', 
+                'user_review', 'price', 'discount_pct', 'url'
+            ])
+            writer.writeheader()
+            writer.writerows(games_data.values())
+        print("Successfully updated CSV file")
         return True
-    else:
-        print("ERROR: Failed to save temporary CSV file!")
+    except Exception as e:
+        print(f"ERROR: Failed to save CSV file: {e}")
         return False
 
 def check_for_changes(old_data, new_data):
@@ -114,24 +111,37 @@ def run_monitoring_cycle():
     notification_content = prepare_notification_content(notifications)
     
     if not save_current_data(new_data):
-        print("Failed to save temporary CSV data")
+        print("Failed to save CSV data")
         return None
     
     return notification_content
 
+def is_scan_time():
+    """Check if current UTC time is 0000, 0800, or 1600."""
+    now = datetime.now(timezone.utc)
+    return now.hour in [0, 8, 16] and now.minute == 0
+
 def main():
-    """Main function to be called by the GitHub workflow."""
-    notification_content = run_monitoring_cycle()
+    """Main function with scheduled monitoring."""
+    print("Starting Steam monitoring service...")
     
-    if notification_content:
-        subject, body = notification_content
-        if send_notification(subject, body):
-            print("Notification sent successfully.")
+    while True:
+        if is_scan_time():
+            print(f"Running scan at {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC")
+            notification_content = run_monitoring_cycle()
+            
+            if notification_content:
+                subject, body = notification_content
+                if send_notification(subject, body):
+                    print("Notification sent successfully.")
+                else:
+                    print("Failed to send notification.")
+            else:
+                print("No changes detected in this cycle.")
+            
+            time.sleep(61)
         else:
-            print("Failed to send notification.")
-            exit(1) 
-    else:
-        print("No changes detected in this cycle.")
+            time.sleep(60)
 
 if __name__ == "__main__":
     main()
