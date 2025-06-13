@@ -31,12 +31,15 @@ jobs:
             exit 1
           fi
 
-      - name: Verify input file
+      - name: Verify input files
         working-directory: ./tracker
         run: |
           if [ ! -f steam_urls.txt ]; then
             echo "Error: steam_urls.txt not found"
             exit 1
+          fi
+          if [ ! -f steam_games_db.csv ]; then
+            echo "Warning: steam_games_db.csv not found, will be created by workflow"
           fi
 
       - name: Run tracker script
@@ -55,28 +58,53 @@ jobs:
             exit 1
           fi
 
+      - name: Check temporary CSV file
+        working-directory: ./tracker
+        id: check-csv
+        run: |
+          if [ -s temp_steam_games.csv ]; then
+            echo "Temporary CSV file is not empty."
+          else
+            echo "Error: temp_steam_games.csv is missing or empty."
+            exit 1
+          fi
+
+      - name: Check for differences
+        working-directory: ./tracker
+        id: check-differences
+        run: |
+          if [ ! -f steam_games_db.csv ] || ! diff -q temp_steam_games.csv steam_games_db.csv; then
+            echo "CSV files are different or steam_games_db.csv does not exist."
+            echo "DIFFERENT_CSV=true" >> $GITHUB_ENV
+          else
+            echo "CSV files are the same. Skipping update."
+            echo "DIFFERENT_CSV=false" >> $GITHUB_ENV
+          fi
+
       - name: Overwrite CSV
-        run:
-          mv tracker/temp_steam_games.csv tracker/steam_games_db.csv
+        working-directory: ./tracker
+        if: steps.check-csv.outcome == 'success' && env.DIFFERENT_CSV == 'true'
+        run: |
+          mv temp_steam_games.csv steam_games_db.csv
+          echo "Successfully updated steam_games_db.csv"
+
+      - name: Clean up temporary CSV
+        working-directory: ./tracker
+        if: steps.check-csv.outcome == 'success' && env.DIFFERENT_CSV == 'false'
+        run: |
+          rm -f temp_steam_games.csv
+          echo "Removed unchanged temp_steam_games.csv"
 
       - name: Commit and push changes
+        if: steps.check-csv.outcome == 'success' && env.DIFFERENT_CSV == 'true'
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           git config --global user.name "GitHub Actions Bot"
           git config --global user.email "actions@github.com"
-          git clean -fd
+          git clean tracker/steam_games_db.csv
           git reset --hard
-          
-          timestamp=$(date +'%Y%m%d%H%M%S')
-          branch_name="update-csv-$timestamp"
-          git checkout -b "$branch_name"
-          git add tracker/steam_games_db.csv
-          git commit -m "Update CSV file"
-          git push origin "$branch_name"
-          git checkout main
-          git merge --no-ff "$branch_name"
-          
-          git push origin main
-          git branch -d "$branch_name"
-          git push origin --delete "$branch_name"
+          git pull
+          git add -f tracker/steam_games_db.csv
+          git commit -m "Updated steam_games_db.csv" || echo "No changes to commit"
+          git push
