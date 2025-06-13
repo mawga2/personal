@@ -66,6 +66,6 @@ jobs:
           git pull --rebase
           git add -f tracker/steam_games_db.csv
           git commit -m "Update steam_games_db.csv with latest scrape data" || echo "No changes to commit"
-          git push --force-with-lease
+          git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
