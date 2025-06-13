@@ -2,8 +2,8 @@ name: Steam Price Tracker
 
 on:
   schedule:
-    - cron: '0 0,8,16 * * *'  # Runs at minute 0 of every 8th hour (UTC)
-  workflow_dispatch:        # Optional: Allow manual triggers
+    - cron: '0 0,8,16 * * *'  # Runs at 00:00, 08:00, 16:00 UTC daily
+  workflow_dispatch:
 
 jobs:
   run-tracker:
@@ -15,15 +15,40 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11.9'  # Match your Python version
+          python-version: '3.11.9'
           cache: 'pip'
 
       - name: Install dependencies
-        working-directory: ./tracker  # Enter the tracker folder
+        working-directory: ./tracker
         run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            echo "Error: requirements.txt not found"
+            exit 1
+          fi
+
+      - name: Verify input file
+        working-directory: ./tracker
+        run: |
+          if [ ! -f steam_urls.txt ]; then
+            echo "Error: steam_urls.txt not found"
+            exit 1
+          fi
 
       - name: Run tracker script
-        working-directory: ./tracker  # Run from the tracker folder
-        run: python monitor.py
+        working-directory: ./tracker
+        env:
+          SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
+          SENDER_PASSWORD: ${{ secrets.SENDER_PASSWORD }}
+          RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+        run: |
+          if [ -f monitor.py ]; then
+            python monitor.py
+          else
+            echo "Error: monitor.py not found"
+            exit 1
+          fi
