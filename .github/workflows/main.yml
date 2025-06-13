@@ -55,6 +55,10 @@ jobs:
             exit 1
           fi
 
+      - name: Overwrite CSV
+        run:
+          mv temp_steam_games.csv tracker/steam_games_db.csv
+
       - name: Commit and push changes
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
@@ -63,7 +67,16 @@ jobs:
           git config --global user.email "actions@github.com"
           git clean -fd
           git reset --hard
-          git pull --rebase
-          git add -f tracker/steam_games_db.csv
-          git commit -m "Updated CSV" || echo "No changes to commit"
-          git push https://$PAT_TOKEN@github.com/$GITHUB_REPOSITORY.git HEAD:main
+          
+          timestamp=$(date +'%Y%m%d%H%M%S')
+          branch_name="update-csv-$timestamp"
+          git checkout -b "$branch_name"
+          git add tracker/steam_games_db.csv
+          git commit -m "Update CSV file"
+          git push origin "$branch_name"
+          git checkout main
+          git merge --no-ff "$branch_name"
+          
+          git push origin main
+          git branch -d "$branch_name"
+          git push origin --delete "$branch_name"
