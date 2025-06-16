@@ -1,12 +1,119 @@
 import csv
 import time
 from datetime import datetime, timezone
-from send_noti import send_notification
-from steam_scraper import scrape_all
+import urllib.request
+from bs4 import BeautifulSoup
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import sys
 
 # Configuration
 STEAM_URLS_FILE = 'steam_urls.txt'
 GAMES_DB_FILE = 'steam_games_db.csv'
+
+def send_notification(subject, body):
+    # Email configuration from environment variables
+    smtp_server = 'smtp.gmail.com'
+    smtp_port = '587'
+    sender_email = 'send543210@gmail.com'
+    sender_password = 'crre dlym rjfp fscj'
+    recipient_email = 'u3606179@connect.hku.hk'
+
+    # Validate environment variables
+    if not all([sender_email, sender_password]):
+        print("Error: SENDER_EMAIL or SENDER_PASSWORD not set in environment variables.")
+        return False
+
+    # Create email
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = recipient_email
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain'))
+
+    try:
+        # Connect to SMTP server
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()  # Enable TLS
+            server.login(sender_email, sender_password)
+            server.sendmail(sender_email, recipient_email, msg.as_string())
+        print("Email sent successfully.")
+        return True
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        return False
+
+def scrape(url):
+    try:
+        req = urllib.request.urlopen(url)
+        html = req.read()
+    except Exception as e:
+        print(f"Error fetching {url}: {e}")
+        return None
+    
+    soup = BeautifulSoup(html, 'html.parser')
+
+    title_div = soup.find('div', {'class': 'apphub_AppName'}, id='appHubAppName_responsive')
+    if not title_div:
+        print(f"Skipping {url}: No title found")
+        return None
+    title = title_div.text.strip()
+
+    # Extract User Review
+    user_review = "No reviews"
+    review_spans = soup.find_all('span', {'class': 'game_review_summary'})
+    if review_spans:
+        user_review = review_spans[0].text.strip()
+
+    # Extract Developer & Publisher
+    developer = "No Developer"
+    publisher = "No Publisher"
+    devpub = soup.find_all('div', {'class': 'dev_row'})
+    if devpub:
+        if len(devpub) > 0:
+            developer = devpub[0].find('a').text.strip() if devpub[0].find('a') else "No Developer"
+        if len(devpub) > 1:
+            publisher = devpub[1].find('a').text.strip() if devpub[1].find('a') else "No Publisher"
+
+    # Extract Tags
+    tags = []
+    tag_list = soup.find_all('a', {'class': 'app_tag'})
+    if tag_list:
+        tags = [tag.text.strip() for tag in tag_list]
+
+    # Extract Price
+    price = "TBD"
+    discount_pct = "N/A"
+
+    purchase_div = soup.find('div', {'class': 'game_area_purchase_game'})
+    if purchase_div:
+        # Check for discounted price first
+        discount_final_price = purchase_div.find('div', {'class': 'discount_final_price'})
+        if discount_final_price:
+            price = discount_final_price.text.strip()
+            discount_pct_tag = purchase_div.find('div', {'class': 'discount_pct'})
+            if discount_pct_tag:
+                discount_pct = discount_pct_tag.text.strip()
+        else:
+            # Check for regular price
+            price_div = purchase_div.find('div', {'class': 'game_purchase_price price'})
+            if price_div and price_div.text.strip():
+                price = price_div.text.strip()
+    else:
+        coming_soon = soup.find('div', {'class': 'comingsoon'})
+        if coming_soon:
+            price = "Coming Soon"
+
+    return (title, developer, publisher, tags, user_review, price, discount_pct, url)
+
+def scrape_all(urls):
+    results = []
+    for url in urls:
+        result = scrape(url)
+        if result:
+            results.append(result)
+    return results
 
 def load_previous_data():
     """Load previously scraped game data from the database file."""
@@ -122,26 +229,18 @@ def is_scan_time():
     return now.hour in [0, 8, 16] and now.minute == 0
 
 def main():
-    """Main function with scheduled monitoring."""
-    print("Starting Steam monitoring service...")
-    
-    while True:
-        if is_scan_time():
-            print(f"Running scan at {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC")
-            notification_content = run_monitoring_cycle()
-            
-            if notification_content:
-                subject, body = notification_content
-                if send_notification(subject, body):
-                    print("Notification sent successfully.")
-                else:
-                    print("Failed to send notification.")
-            else:
-                print("No changes detected in this cycle.")
-            
-            time.sleep(61)
+    notification_content = run_monitoring_cycle()
+    if notification_content:
+        subject, body = notification_content
+        if send_notification(subject, body):
+            print("Notification sent successfully.")
+            return 0
         else:
-            time.sleep(60)
+            print("Failed to send notification.")
+            return 1
+    else:
+        print("No changes detected in this cycle.")
+        return 0
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main_once())
