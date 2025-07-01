@@ -243,4 +243,4 @@ def main():
         return 0
 
 if __name__ == "__main__":
-    sys.exit(main_once())
+    sys.exit(main())
